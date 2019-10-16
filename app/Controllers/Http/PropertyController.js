@@ -20,9 +20,14 @@ class PropertyController {
    * @param {View} ctx.view
    */
 
-  /** async index({ request, response, view }) {} */
-  async index() {
-    const properties = Property.all();
+  /* async index({ request, response, view }) {} */
+  async index({ request }) {
+    const { latitude, longitude } = request.all();
+
+    const properties = Property.query()
+      .with("images")
+      .nearBy(latitude, longitude, 10) /* até '10' km de distância */
+      .fetch();
 
     return properties;
   }
@@ -35,7 +40,21 @@ class PropertyController {
    * @param {Request} ctx.request
    * @param {Response} ctx.response
    */
-  async store({ request, response }) {}
+  /* async store({ request, response }) {} */
+  async store({ auth, request, response }) {
+    const { id } = auth.user;
+    const data = request.only([
+      "title",
+      "address",
+      "latitude",
+      "longitude",
+      "price"
+    ]);
+
+    const property = await Property.create({ ...data, user_id: id });
+
+    return property;
+  }
 
   /**
    * Display a single property.
@@ -63,7 +82,24 @@ class PropertyController {
    * @param {Request} ctx.request
    * @param {Response} ctx.response
    */
-  async update({ params, request, response }) {}
+  /*  async update({ params, request, response }) {} */
+  async update({ params, request, response }) {
+    const property = await Property.findOrFail(params.id);
+
+    const data = request.only([
+      "title",
+      "address",
+      "latitude",
+      "longitude",
+      "price"
+    ]);
+
+    property.merge(data);
+
+    await property.save();
+
+    return property;
+  }
 
   /**
    * Delete a property with id.
@@ -73,16 +109,16 @@ class PropertyController {
    * @param {Request} ctx.request
    * @param {Response} ctx.response
    */
-/** async destroy({ params, request, response }) {} */
-  async destroy({ params, auth , response }) {
-    const property=await Property.findOrFail(params.id)
+  /** async destroy({ params, request, response }) {} */
+  async destroy({ params, auth, response }) {
+    const property = await Property.findOrFail(params.id);
 
-    if(property.user_id !== auth.user.id){
-    return response.status(401).send({error:'NotAuthorized'})
-   }
+    if (property.user_id !== auth.user.id) {
+      return response.status(401).send({ error: "NotAuthorized" });
+    }
 
-   await property.delete()
-
+    await property.delete();
+  }
 }
 
 module.exports = PropertyController;
